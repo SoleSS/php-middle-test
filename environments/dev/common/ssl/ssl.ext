@@ -1,0 +1,10 @@
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = php-middle.test
+DNS.2 = www.php-middle.test
+DNS.3 = admin.php-middle.test
+DNS.4 = static.php-middle.test
