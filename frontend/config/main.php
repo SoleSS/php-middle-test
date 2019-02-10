@@ -42,6 +42,8 @@ return [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => [
+                'GET /currencies' => '/currency/index',
+                'GET /currency/<id:\d+>' => '/currency/view',
             ],
         ],
     ],

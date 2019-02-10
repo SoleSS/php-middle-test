@@ -9,6 +9,10 @@ return [
         'cache' => [
             'class' => 'yii\caching\FileCache',
         ],
+        'jwt' => [
+            'class' => 'sizeg\jwt\Jwt',
+            'key'   => 'sdmjgfye73.sdl05sb73b5980sjasuydgf023jfhywmnx',
+        ],
     ],
     'modules' => [
         'user' => [
@@ -18,6 +22,9 @@ return [
             // configure in needed configs
             'admins' => ['admin', ],
             'adminPermission' => ['Administrator', ],
+            'modelMap' => [
+                'User' => 'common\models\User',
+            ],
         ],
         'rbac' => 'dektrium\rbac\RbacWebModule',
     ],

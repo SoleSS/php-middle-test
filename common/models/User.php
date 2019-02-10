@@ -1,189 +1,71 @@
 <?php
+
 namespace common\models;
 
-use Yii;
-use yii\base\NotSupportedException;
-use yii\behaviors\TimestampBehavior;
-use yii\db\ActiveRecord;
-use yii\web\IdentityInterface;
-
 /**
- * User model
+ * User ActiveRecord model.
  *
+ * @property bool    $isAdmin
+ * @property bool    $isBlocked
+ * @property bool    $isConfirmed
+ *
+ * Database fields:
  * @property integer $id
- * @property string $username
- * @property string $password_hash
- * @property string $password_reset_token
- * @property string $email
- * @property string $auth_key
- * @property integer $status
+ * @property string  $username
+ * @property string  $email
+ * @property string  $unconfirmed_email
+ * @property string  $password_hash
+ * @property string  $auth_key
+ * @property string  $registration_ip
+ * @property integer $confirmed_at
+ * @property integer $blocked_at
  * @property integer $created_at
  * @property integer $updated_at
- * @property string $password write-only password
+ * @property integer $last_login_at
+ * @property integer $flags
+ *
+ * Defined relations:
+ * @property Account[] $accounts
+ * @property Profile   $profile
+ *
+ * Dependencies:
+ * @property-read Finder $finder
+ * @property-read Module $module
+ * @property-read Mailer $mailer
+ *
+ * @author Dmitry Erofeev <dmeroff@gmail.com>
  */
-class User extends ActiveRecord implements IdentityInterface
+class User extends \dektrium\user\models\User
 {
-    const STATUS_DELETED = 0;
-    const STATUS_ACTIVE = 10;
-
-
-    /**
-     * {@inheritdoc}
-     */
-    public static function tableName()
-    {
-        return '{{%user}}';
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function behaviors()
-    {
-        return [
-            TimestampBehavior::className(),
-        ];
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function rules()
-    {
-        return [
-            ['status', 'default', 'value' => self::STATUS_ACTIVE],
-            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_DELETED]],
-        ];
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public static function findIdentity($id)
-    {
-        return static::findOne(['id' => $id, 'status' => self::STATUS_ACTIVE]);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public static function findIdentityByAccessToken($token, $type = null)
     {
-        throw new NotSupportedException('"findIdentityByAccessToken" is not implemented.');
-    }
+        $token = \Yii::$app->jwt->getParser()->parse((string) $token); // Parses from a string
+        $signer = new \Lcobucci\JWT\Signer\Hmac\Sha256();
 
-    /**
-     * Finds user by username
-     *
-     * @param string $username
-     * @return static|null
-     */
-    public static function findByUsername($username)
-    {
-        return static::findOne(['username' => $username, 'status' => self::STATUS_ACTIVE]);
-    }
+        $data = \Yii::$app->jwt->getValidationData(); // It will use the current time to validate (iat, nbf and exp)
+        $data->setIssuer(\Yii::$app->params['jwtIssuer']);
+        $data->setAudience(\Yii::$app->params['jwtAudience']);
+        $data->setId(\Yii::$app->params['jwtId']);
 
-    /**
-     * Finds user by password reset token
-     *
-     * @param string $token password reset token
-     * @return static|null
-     */
-    public static function findByPasswordResetToken($token)
-    {
-        if (!static::isPasswordResetTokenValid($token)) {
-            return null;
+        $uid = $token->getClaim('uid');
+
+        if ($token->validate($data) && $token->verify($signer, \Yii::$app->jwt->key)) {
+            return static::findById($uid);
         }
 
-        return static::findOne([
-            'password_reset_token' => $token,
-            'status' => self::STATUS_ACTIVE,
-        ]);
+        return null;
     }
 
-    /**
-     * Finds out if password reset token is valid
-     *
-     * @param string $token password reset token
-     * @return bool
-     */
-    public static function isPasswordResetTokenValid($token)
-    {
-        if (empty($token)) {
-            return false;
-        }
-
-        $timestamp = (int) substr($token, strrpos($token, '_') + 1);
-        $expire = Yii::$app->params['user.passwordResetTokenExpire'];
-        return $timestamp + $expire >= time();
+    public static function findById($id) {
+        return static::find()
+            ->where(['id' => (int)$id])
+            ->andWhere(['NOT', ['confirmed_at' => null]])
+            ->andWhere(['blocked_at' => null])
+            ->limit(1)
+            ->one();
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getId()
-    {
-        return $this->getPrimaryKey();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getAuthKey()
-    {
-        return $this->auth_key;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function validateAuthKey($authKey)
-    {
-        return $this->getAuthKey() === $authKey;
-    }
-
-    /**
-     * Validates password
-     *
-     * @param string $password password to validate
-     * @return bool if password provided is valid for current user
-     */
-    public function validatePassword($password)
-    {
-        return Yii::$app->security->validatePassword($password, $this->password_hash);
-    }
-
-    /**
-     * Generates password hash from password and sets it to the model
-     *
-     * @param string $password
-     */
-    public function setPassword($password)
-    {
-        $this->password_hash = Yii::$app->security->generatePasswordHash($password);
-    }
-
-    /**
-     * Generates "remember me" authentication key
-     */
-    public function generateAuthKey()
-    {
-        $this->auth_key = Yii::$app->security->generateRandomString();
-    }
-
-    /**
-     * Generates new password reset token
-     */
-    public function generatePasswordResetToken()
-    {
-        $this->password_reset_token = Yii::$app->security->generateRandomString() . '_' . time();
-    }
-
-    /**
-     * Removes password reset token
-     */
-    public function removePasswordResetToken()
-    {
-        $this->password_reset_token = null;
+    public static function findByUsername($username) {
+        return null;
     }
 }
