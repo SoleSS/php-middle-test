@@ -12,6 +12,12 @@ To get new token user have to pass login\password in POST request to:
 ```
 /auth/gen-jwt-token
 ```
+
+CURL example:
+```
+curl -d "login=admin&password=***" -k -X POST https://php-middle.test/auth/gen-jwt-token
+```
+
 in response:
 ```
 {
@@ -32,4 +38,13 @@ Get full list of available currencies (with pagination):
 Get info about specific currency:
 ```
 [GET] /currency/1
+```
+
+CURL example:
+```
+curl -H "Authorization: Bearer ***" -k -X GET https://php-middle.test/currencies
+```
+
+```
+curl -H "Authorization: Bearer ***" -k -X GET https://php-middle.test/currency/1
 ```
